@@ -2,10 +2,15 @@
 
 import os
 import subprocess
-import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
+
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, MofNCompleteColumn
+from rich.text import Text
+
+from mediahelper.theme import console, AMBER, AMBER_DIM, AMBER_BRIGHT, ORANGE, BORDER_STYLE
 
 SUPPORTED_BIT_DEPTHS = [16, 24, 32]
 SUPPORTED_SAMPLE_RATES = [44100, 48000, 88200, 96000, 176400, 192000]
@@ -52,7 +57,7 @@ def find_audio_files(inputs: list[str]) -> list[Path]:
                         files.append(resolved)
                         seen.add(resolved)
         else:
-            print(f"Warning: skipping '{input_path}' (not a file or directory)", file=sys.stderr)
+            console.print(f"  [dim]Warning: skipping '{input_path}' (not a file or directory)[/dim]", style=AMBER_DIM)
     return files
 
 
@@ -125,12 +130,18 @@ def check_ffmpeg() -> bool:
 def convert_audio(args) -> int:
     """Main audio conversion entrypoint."""
     if not check_ffmpeg():
-        print("Error: ffmpeg not found. Install it with: sudo apt install ffmpeg", file=sys.stderr)
+        console.print(
+            Panel(
+                "ffmpeg not found. Install it with: sudo apt install ffmpeg",
+                title="Error",
+                border_style="red",
+            )
+        )
         return 1
 
     files = find_audio_files(args.inputs)
     if not files:
-        print("No supported audio files found in the specified inputs.", file=sys.stderr)
+        console.print("  No supported audio files found.", style=AMBER_DIM)
         return 1
 
     output_dir = Path(args.output_dir) if args.output_dir else None
@@ -140,7 +151,7 @@ def convert_audio(args) -> int:
     for f in files:
         out_path = build_output_path(f, output_dir, args.format)
         if out_path.exists() and not args.overwrite:
-            print(f"  Skipping (exists): {out_path}")
+            console.print(f"  Skipping (exists): {out_path}", style=AMBER_DIM)
             continue
         jobs.append(ConversionJob(
             input_path=f,
@@ -151,7 +162,7 @@ def convert_audio(args) -> int:
         ))
 
     if not jobs:
-        print("Nothing to convert (all outputs already exist).")
+        console.print("  Nothing to convert (all outputs already exist).", style=AMBER_DIM)
         return 0
 
     # Print summary
@@ -163,34 +174,63 @@ def convert_audio(args) -> int:
     spec_parts.append(args.format.upper())
     spec_str = " / ".join(spec_parts)
 
-    print(f"\nConversion plan:")
-    print(f"  Files:  {len(jobs)}")
-    print(f"  Target: {spec_str}")
+    summary = Text()
+    summary.append(f"  Files:  {len(jobs)}\n", style=AMBER)
+    summary.append(f"  Target: {spec_str}\n", style=AMBER)
     if output_dir:
-        print(f"  Output: {output_dir}")
-    print()
+        summary.append(f"  Output: {output_dir}\n", style=AMBER)
+
+    console.print(Panel(
+        summary,
+        title="[bold]== Conversion Plan ==[/bold]",
+        title_align="center",
+        border_style=BORDER_STYLE,
+        padding=(0, 1),
+    ))
 
     if args.dry_run:
         for job in jobs:
-            print(f"  [dry-run] {job.input_path} -> {job.output_path}")
+            console.print(f"  [dry-run] {job.input_path.name} → {job.output_path}", style=AMBER_DIM)
         return 0
 
-    # Run conversions in parallel
+    # Run conversions with progress bar
     num_jobs = args.jobs or os.cpu_count() or 4
     num_jobs = min(num_jobs, len(jobs))
     successes = 0
     failures = 0
 
-    with ProcessPoolExecutor(max_workers=num_jobs) as executor:
-        futures = {executor.submit(run_conversion, job): job for job in jobs}
-        for future in as_completed(futures):
-            path, success, msg = future.result()
-            if success:
-                successes += 1
-                print(f"  ✓ {path.name}")
-            else:
-                failures += 1
-                print(f"  ✗ {path.name}: {msg}", file=sys.stderr)
+    with Progress(
+        SpinnerColumn(style=AMBER),
+        TextColumn("[progress.description]{task.description}", style=AMBER),
+        BarColumn(complete_style=AMBER_BRIGHT, finished_style=AMBER_BRIGHT, bar_width=30),
+        MofNCompleteColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Converting", total=len(jobs))
 
-    print(f"\nDone: {successes} converted, {failures} failed.")
+        with ProcessPoolExecutor(max_workers=num_jobs) as executor:
+            futures = {executor.submit(run_conversion, job): job for job in jobs}
+            for future in as_completed(futures):
+                path, success, msg = future.result()
+                progress.advance(task)
+                if success:
+                    successes += 1
+                    progress.console.print(f"  [+] {path.name}", style=AMBER_BRIGHT)
+                else:
+                    failures += 1
+                    progress.console.print(f"  [!] {path.name}: {msg}", style="red")
+
+    # Final summary
+    result_text = Text()
+    result_text.append(f"  {successes} converted", style=AMBER_BRIGHT)
+    if failures:
+        result_text.append(f"  {failures} failed", style="bold red")
+
+    console.print(Panel(
+        result_text,
+        title="[bold]== Done ==[/bold]",
+        title_align="center",
+        border_style=BORDER_STYLE,
+        padding=(0, 0),
+    ))
     return 1 if failures > 0 else 0

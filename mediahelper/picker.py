@@ -2,10 +2,37 @@
 
 from __future__ import annotations
 
+import atexit
 import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+from rich.panel import Panel
+from rich.text import Text
+
+from mediahelper.theme import console, AMBER, AMBER_DIM, AMBER_BRIGHT, ORANGE, BORDER_STYLE
+
+
+_saved_termios = None
+
+
+def _save_terminal_state() -> None:
+    """Save terminal settings so they can be restored on exit."""
+    global _saved_termios
+    if os.name != "nt" and sys.stdin.isatty():
+        import termios
+        _saved_termios = termios.tcgetattr(sys.stdin.fileno())
+
+
+def _restore_terminal_state() -> None:
+    """Restore terminal to its original state."""
+    if _saved_termios is not None:
+        import termios
+        try:
+            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, _saved_termios)
+        except Exception:
+            pass
 
 
 @dataclass(frozen=True)
@@ -16,10 +43,6 @@ class PickerEntry:
     label: str
     selectable: bool
     navigable: bool
-
-
-def _clear_screen() -> None:
-    os.system("cls" if os.name == "nt" else "clear")
 
 
 def _read_key() -> str:
@@ -95,7 +118,7 @@ def _list_entries(current_dir: Path, file_extensions: set[str] | None) -> list[P
         entries.append(
             PickerEntry(
                 directory,
-                f"[DIR] {directory.name}{os.sep}",
+                f"DIR  {directory.name}/",
                 selectable=True,
                 navigable=True,
             )
@@ -104,29 +127,71 @@ def _list_entries(current_dir: Path, file_extensions: set[str] | None) -> list[P
     for file_path in files:
         if file_extensions and file_path.suffix.lower() not in file_extensions:
             continue
-        entries.append(PickerEntry(file_path, file_path.name, selectable=True, navigable=False))
+        entries.append(PickerEntry(file_path, f"     {file_path.name}", selectable=True, navigable=False))
 
     return entries
 
 
 def _render(current_dir: Path, entries: list[PickerEntry], cursor: int, selected: set[Path]) -> None:
-    _clear_screen()
-    print("MediaHelper Interactive Picker")
-    print(f"Current: {current_dir}")
-    print("Keys: Up/Down move  Enter/Right open  Left up  Space select  A select visible  S start  Q cancel")
-    print(f"Selected: {len(selected)}")
-    print()
+    console.clear()
+
+    body = Text()
+
+    path_label = Text("  >> ", style=AMBER)
+    path_label.append(str(current_dir), style=f"bold {AMBER_BRIGHT}")
+    body.append_text(path_label)
+    body.append("\n")
+
+    selected_label = Text(f"  Selected: {len(selected)}", style=ORANGE)
+    body.append_text(selected_label)
+    body.append("\n\n")
 
     if not entries:
-        print("  (No files or directories here)")
-        return
+        body.append("  (empty directory)\n", style=AMBER_DIM)
+    else:
+        for idx, entry in enumerate(entries):
+            is_cursor = idx == cursor
+            is_selected = entry.path in selected
 
-    for idx, entry in enumerate(entries):
-        pointer = ">" if idx == cursor else " "
-        marker = "[x]" if entry.path in selected else "[ ]"
-        if not entry.selectable:
-            marker = "   "
-        print(f"{pointer} {marker} {entry.label}")
+            if is_cursor:
+                pointer = Text(" >> ", style=f"bold {AMBER_BRIGHT}")
+            else:
+                pointer = Text("   ", style=AMBER_DIM)
+            body.append_text(pointer)
+
+            if entry.selectable:
+                if is_selected:
+                    marker = Text("[x] ", style=f"bold {AMBER_BRIGHT}")
+                else:
+                    marker = Text("[ ] ", style=AMBER_DIM)
+            else:
+                marker = Text("  ")
+            body.append_text(marker)
+
+            if is_cursor:
+                label_style = f"bold {AMBER_BRIGHT}"
+            elif is_selected:
+                label_style = AMBER
+            else:
+                label_style = AMBER_DIM
+            body.append(entry.label, style=label_style)
+            body.append("\n")
+
+    keys = Text(
+        "  ↑↓ move · ←→ navigate · Space select · A all · S start · Q quit",
+        style=AMBER_DIM,
+    )
+
+    panel = Panel(
+        body,
+        title="[bold]== MEDIAHELPER ==[/bold]",
+        title_align="center",
+        subtitle=keys,
+        subtitle_align="center",
+        border_style=BORDER_STYLE,
+        padding=(0, 1),
+    )
+    console.print(panel)
 
 
 def interactive_select_option(
@@ -139,16 +204,36 @@ def interactive_select_option(
     Returns the selected value, or None on cancel.
     """
     cursor = 0
+    _save_terminal_state()
+    atexit.register(_restore_terminal_state)
 
     while True:
-        _clear_screen()
-        print(title)
-        print("Keys: Up/Down move  Enter select  Q cancel")
-        print()
+        body.append("\n")
 
         for idx, (_value, label) in enumerate(options):
-            pointer = ">" if idx == cursor else " "
-            print(f"  {pointer} {label}")
+            is_cursor = idx == cursor
+            if is_cursor:
+                body.append("  >> ", style=f"bold {AMBER_BRIGHT}")
+                body.append(label, style=f"bold {AMBER_BRIGHT}")
+            else:
+                body.append("    ", style=AMBER_DIM)
+                body.append(label, style=AMBER_DIM)
+            body.append("\n")
+
+        body.append("\n")
+
+        keys = Text("  ↑↓ move · Enter select · Q cancel", style=AMBER_DIM)
+
+        panel = Panel(
+            body,
+            title=f"[bold]{title}[/bold]",
+            title_align="center",
+            subtitle=keys,
+            subtitle_align="center",
+            border_style=BORDER_STYLE,
+            padding=(0, 1),
+        )
+        console.print(panel)
 
         key = _read_key()
         if key == "up":
@@ -156,10 +241,10 @@ def interactive_select_option(
         elif key == "down":
             cursor = (cursor + 1) % len(options)
         elif key == "enter":
-            _clear_screen()
+            console.clear()
             return options[cursor][0]
         elif key in ("q", "esc"):
-            _clear_screen()
+            console.clear()
             return None
 
 
@@ -175,6 +260,8 @@ def interactive_select_paths(
     current_dir = Path(start_dir).resolve() if start_dir else Path.cwd().resolve()
     selected: set[Path] = set()
     cursor = 0
+    _save_terminal_state()
+    atexit.register(_restore_terminal_state)
 
     while True:
         try:
@@ -216,8 +303,8 @@ def interactive_select_paths(
                 if entry.selectable:
                     selected.add(entry.path)
         elif key == "submit":
-            _clear_screen()
+            console.clear()
             return [str(path) for path in sorted(selected, key=lambda p: str(p).lower())]
         elif key in ("q", "esc"):
-            _clear_screen()
+            console.clear()
             return []

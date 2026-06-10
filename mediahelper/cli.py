@@ -10,6 +10,7 @@ from mediahelper.audio import (
     SUPPORTED_SAMPLE_RATES,
 )
 from mediahelper.picker import interactive_select_paths, interactive_select_option
+from mediahelper.theme import console, AMBER_DIM
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -80,50 +81,58 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     if args.command is None:
-        parse_args(["--help"])
-        return 1
+        args.command = "audio"
+        args.inputs = []
+        args.picker = False
+        args.bit_depth = None
+        args.sample_rate = None
+        args.format = "flac"
+        args.output_dir = None
+        args.overwrite = False
+        args.jobs = None
+        args.dry_run = False
 
     if args.command == "audio":
         if args.picker or not args.inputs:
             if not sys.stdin.isatty() or not sys.stdout.isatty():
-                print(
+                console.print(
                     "Interactive picker requires a TTY. Provide input paths as arguments instead.",
-                    file=sys.stderr,
+                    style=AMBER_DIM,
                 )
                 return 1
             picked = interactive_select_paths(file_extensions=SUPPORTED_INPUT_EXTENSIONS)
             if not picked:
-                print("No inputs selected. Exiting.", file=sys.stderr)
+                console.print("No inputs selected. Exiting.", style=AMBER_DIM)
                 return 1
             args.inputs = picked
 
             # Prompt for conversion settings
             fmt = interactive_select_option(
-                "Select output format:",
+                "== Select Output Format ==",
                 [("flac", "FLAC"), ("wav", "WAV"), ("alac", "ALAC")],
             )
             if fmt is None:
-                print("Cancelled.", file=sys.stderr)
+                console.print("Cancelled.", style=AMBER_DIM)
                 return 1
             args.format = fmt
 
             bd = interactive_select_option(
-                "Select bit depth:",
+                "== Select Bit Depth ==",
                 [("keep", "Keep original")]
                 + [(str(b), f"{b}-bit") for b in SUPPORTED_BIT_DEPTHS],
             )
             if bd is None:
-                print("Cancelled.", file=sys.stderr)
+                console.print("Cancelled.", style=AMBER_DIM)
                 return 1
             args.bit_depth = None if bd == "keep" else int(bd)
 
             sr = interactive_select_option(
-                "Select sample rate:",
+                "== Select Sample Rate ==",
                 [("keep", "Keep original")]
                 + [(str(r), f"{r // 1000}.{(r % 1000) // 100}kHz" if r % 1000 else f"{r // 1000}kHz") for r in SUPPORTED_SAMPLE_RATES],
             )
             if sr is None:
-                print("Cancelled.", file=sys.stderr)
+                console.print("Cancelled.", style=AMBER_DIM)
                 return 1
             args.sample_rate = None if sr == "keep" else int(sr)
         return convert_audio(args)
