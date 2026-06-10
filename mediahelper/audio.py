@@ -92,7 +92,7 @@ def build_ffmpeg_command(job: ConversionJob) -> list[str]:
             cmd.extend(["-sample_fmt", sample_fmt])
 
     if job.sample_rate:
-        cmd.extend(["-ar", str(job.sample_rate)])
+        cmd.extend(["-af", "aresample=resampler=soxr", "-ar", str(job.sample_rate)])
 
     cmd.append(str(job.output_path))
     return cmd
