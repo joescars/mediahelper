@@ -1,0 +1,13 @@
+[project]
+name = "mediahelper"
+version = "0.1.0"
+description = "CLI tool for converting media files (audio now, video later)"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+mediahelper = "mediahelper.cli:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
