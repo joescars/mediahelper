@@ -9,7 +9,7 @@ from mediahelper.audio import (
     SUPPORTED_INPUT_EXTENSIONS,
     SUPPORTED_SAMPLE_RATES,
 )
-from mediahelper.picker import interactive_select_paths
+from mediahelper.picker import interactive_select_paths, interactive_select_option
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -96,6 +96,36 @@ def main(argv: list[str] | None = None) -> int:
                 print("No inputs selected. Exiting.", file=sys.stderr)
                 return 1
             args.inputs = picked
+
+            # Prompt for conversion settings
+            fmt = interactive_select_option(
+                "Select output format:",
+                [("flac", "FLAC"), ("wav", "WAV"), ("alac", "ALAC")],
+            )
+            if fmt is None:
+                print("Cancelled.", file=sys.stderr)
+                return 1
+            args.format = fmt
+
+            bd = interactive_select_option(
+                "Select bit depth:",
+                [("keep", "Keep original")]
+                + [(str(b), f"{b}-bit") for b in SUPPORTED_BIT_DEPTHS],
+            )
+            if bd is None:
+                print("Cancelled.", file=sys.stderr)
+                return 1
+            args.bit_depth = None if bd == "keep" else int(bd)
+
+            sr = interactive_select_option(
+                "Select sample rate:",
+                [("keep", "Keep original")]
+                + [(str(r), f"{r // 1000}.{(r % 1000) // 100}kHz" if r % 1000 else f"{r // 1000}kHz") for r in SUPPORTED_SAMPLE_RATES],
+            )
+            if sr is None:
+                print("Cancelled.", file=sys.stderr)
+                return 1
+            args.sample_rate = None if sr == "keep" else int(sr)
         return convert_audio(args)
 
     return 0

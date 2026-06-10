@@ -129,6 +129,40 @@ def _render(current_dir: Path, entries: list[PickerEntry], cursor: int, selected
         print(f"{pointer} {marker} {entry.label}")
 
 
+def interactive_select_option(
+    title: str,
+    options: list[tuple[str, str]],
+) -> str | None:
+    """
+    Present a single-choice menu. Each option is (value, label).
+
+    Returns the selected value, or None on cancel.
+    """
+    cursor = 0
+
+    while True:
+        _clear_screen()
+        print(title)
+        print("Keys: Up/Down move  Enter select  Q cancel")
+        print()
+
+        for idx, (_value, label) in enumerate(options):
+            pointer = ">" if idx == cursor else " "
+            print(f"  {pointer} {label}")
+
+        key = _read_key()
+        if key == "up":
+            cursor = (cursor - 1) % len(options)
+        elif key == "down":
+            cursor = (cursor + 1) % len(options)
+        elif key == "enter":
+            _clear_screen()
+            return options[cursor][0]
+        elif key in ("q", "esc"):
+            _clear_screen()
+            return None
+
+
 def interactive_select_paths(
     start_dir: str | Path | None = None,
     file_extensions: set[str] | None = None,
