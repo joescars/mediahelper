@@ -208,6 +208,8 @@ def interactive_select_option(
     atexit.register(_restore_terminal_state)
 
     while True:
+        console.clear()
+        body = Text()
         body.append("\n")
 
         for idx, (_value, label) in enumerate(options):
