@@ -14,7 +14,7 @@ A retro-styled command-line tool for converting audio files. Features an interac
 ## Installation
 
 ```bash
-pip install -e .
+pip install .
 ```
 
 Or install globally with pipx:
