@@ -38,13 +38,16 @@ jobs:
             python3-wheel
 
       - name: Build .deb
-        run: dpkg-buildpackage -us -uc -b
+        run: |
+          dpkg-buildpackage -us -uc -b
+          mkdir -p artifacts
+          cp ../mediahelper_* artifacts/
 
       - name: Upload Debian artifacts
         uses: actions/upload-artifact@v4
         with:
           name: debian-packages
           path: |
-            ../mediahelper_*_all.deb
-            ../mediahelper_*.buildinfo
-            ../mediahelper_*.changes
+            artifacts/mediahelper_*_all.deb
+            artifacts/mediahelper_*.buildinfo
+            artifacts/mediahelper_*.changes
