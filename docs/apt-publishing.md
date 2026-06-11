@@ -2,11 +2,24 @@
 
 ## Recommended release flow
 
-1. Cut a release by tagging a commit, for example `v0.1.0`.
-2. Let CI build a `.deb` from that tag.
-3. Publish the package into an APT repository.
-4. Sign the repository metadata with a GPG key.
-5. Point users at the repo and let `apt` handle upgrades.
+1. Merge packaging and feature work into `main`.
+2. Cut a release by tagging a commit on `main`, for example `v0.1.0`.
+3. Let CI build a `.deb` from that tag.
+4. Publish the package into an APT repository.
+5. Sign the repository metadata with a GPG key.
+6. Point users at the repo and let `apt` handle upgrades.
+
+Example:
+
+```bash
+git checkout packaging/debian-release
+git tag -a v0.1.0 -m "mediahelper 0.1.0"
+git push origin v0.1.0
+```
+
+`git tag -a` creates an annotated tag, which stores metadata like the tagger name, date, and message. `-m` sets the tag message, similar to a commit message. Annotated tags are the right choice for releases because they are easier to inspect and are what release workflows usually expect.
+
+`packaging/debian-release` is just the branch for packaging work in this repo. It is not a release branch and does not need to be used for day-to-day release tagging.
 
 ## Good repo options
 
