@@ -1,0 +1,5 @@
+mediahelper (0.1.0-1) unstable; urgency=medium
+
+  * Initial Debian packaging.
+
+ -- Joe Scars <joescars@users.noreply.github.com>  Wed, 10 Jun 2026 00:00:00 +0000

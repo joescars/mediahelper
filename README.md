@@ -23,6 +23,10 @@ Or install globally with pipx:
 pipx install .
 ```
 
+## Debian / APT packaging
+
+If you want to publish releases through `apt`, see `docs/apt-publishing.md`. The repo now includes Debian packaging metadata under `debian/`, so CI can build `.deb` artifacts from release tags.
+
 ## Usage
 
 ### Interactive mode (recommended)

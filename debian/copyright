@@ -1,0 +1,11 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: mediahelper
+Source: https://github.com/joescars/mediahelper
+
+Files: *
+Copyright: 2026 Joe Scars
+License: proprietary
+
+License: proprietary
+ This project does not currently declare an open-source license.
+ Redistribution is limited to the terms granted by the repository owner.
