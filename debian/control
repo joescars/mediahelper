@@ -1,0 +1,27 @@
+Source: mediahelper
+Section: utils
+Priority: optional
+Maintainer: Joe Scars <joescars@users.noreply.github.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-sequence-python3,
+ python3-all,
+ python3-setuptools,
+ python3-wheel,
+ pybuild-plugin-pyproject
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/joescars/mediahelper
+Vcs-Git: https://github.com/joescars/mediahelper.git
+Vcs-Browser: https://github.com/joescars/mediahelper
+
+Package: mediahelper
+Architecture: all
+Depends:
+ ${misc:Depends},
+ ${python3:Depends},
+ python3-rich,
+ ffmpeg
+Description: retro-styled audio conversion CLI
+ mediahelper converts FLAC audio files to FLAC, WAV, or ALAC with an
+ interactive terminal picker and ffmpeg-based batch conversion.
